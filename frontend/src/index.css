@@ -2,14 +2,114 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme colours (see tailwind.config.js for what each shade is used for).
+   Light is the default; the `dark` class on <html> switches to dark. */
+@layer base {
+  :root {
+    color-scheme: light;
+    --c-slate-50: 13 13 13; /* #0d0d0d */
+    --c-slate-100: 26 26 26; /* #1a1a1a */
+    --c-slate-200: 43 43 43; /* #2b2b2b */
+    --c-slate-300: 64 64 64; /* #404040 */
+    --c-slate-400: 93 93 93; /* #5d5d5d */
+    --c-slate-500: 107 107 107; /* #6b6b6b */
+    --c-slate-600: 163 163 163; /* #a3a3a3 */
+    --c-slate-700: 212 212 212; /* #d4d4d4 */
+    --c-slate-800: 229 229 229; /* #e5e5e5 */
+    --c-slate-900: 255 255 255; /* #ffffff */
+    --c-slate-950: 243 243 243; /* #f3f3f3 */
+    --c-white: 13 13 13; /* #0d0d0d */
+    --c-indigo-300: 29 95 209; /* #1d5fd1 */
+    --c-indigo-400: 29 95 209; /* #1d5fd1 */
+    --c-indigo-500: 64 64 64; /* #404040 */
+    --c-indigo-600: 13 13 13; /* #0d0d0d */
+    --c-emerald-400: 6 122 82; /* #067a52 */
+    --c-rose-200: 159 31 43; /* #9f1f2b */
+    --c-rose-300: 196 50 63; /* #c4323f */
+    --c-rose-400: 217 70 79; /* #d9464f */
+    --c-rose-500: 229 72 77; /* #e5484d */
+    --c-amber-300: 166 75 7; /* #a64b07 */
+    --c-amber-500: 245 158 11; /* #f59e0b */
+    --c-sky-300: 3 105 161; /* #0369a1 */
+    --c-sky-500: 14 165 233; /* #0ea5e9 */
+    --c-orange-300: 178 60 10; /* #b23c0a */
+    --c-orange-500: 249 115 22; /* #f97316 */
+  }
+
+  .dark {
+    color-scheme: dark;
+    --c-slate-50: 245 245 245; /* #f5f5f5 */
+    --c-slate-100: 236 236 236; /* #ececec */
+    --c-slate-200: 220 220 220; /* #dcdcdc */
+    --c-slate-300: 205 205 205; /* #cdcdcd */
+    --c-slate-400: 180 180 180; /* #b4b4b4 */
+    --c-slate-500: 155 155 155; /* #9b9b9b */
+    --c-slate-600: 107 107 107; /* #6b6b6b */
+    --c-slate-700: 82 82 82; /* #525252 */
+    --c-slate-800: 66 66 66; /* #424242 */
+    --c-slate-900: 47 47 47; /* #2f2f2f */
+    --c-slate-950: 33 33 33; /* #212121 */
+    --c-white: 243 243 243; /* #f3f3f3 */
+    --c-indigo-300: 138 180 248; /* #8ab4f8 */
+    --c-indigo-400: 138 180 248; /* #8ab4f8 */
+    --c-indigo-500: 180 180 180; /* #b4b4b4 */
+    --c-indigo-600: 236 236 236; /* #ececec */
+    --c-emerald-400: 63 194 143; /* #3fc28f */
+    --c-rose-200: 254 205 211; /* #fecdd3 */
+    --c-rose-300: 242 139 149; /* #f28b95 */
+    --c-rose-400: 248 113 113; /* #f87171 */
+    --c-rose-500: 244 63 94; /* #f43f5e */
+    --c-amber-300: 252 211 77; /* #fcd34d */
+    --c-amber-500: 245 158 11; /* #f59e0b */
+    --c-sky-300: 125 211 252; /* #7dd3fc */
+    --c-sky-500: 14 165 233; /* #0ea5e9 */
+    --c-orange-300: 253 186 116; /* #fdba74 */
+    --c-orange-500: 249 115 22; /* #f97316 */
+  }
+}
+
 body {
   @apply bg-slate-950 text-slate-200 antialiased;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Thin, subtle scrollbars (Chrome, Edge, Brave, Safari) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-slate-700));
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-slate-600));
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox (only where the WebKit selectors above aren't supported, so Chrome keeps the 6px look) */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--c-slate-700)) transparent;
+  }
+}
+
 @layer components {
   .card {
     @apply rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5;
+  }
+  /* Dashboard panel: on xl screens it fills its grid/flex cell and only its body scrolls. */
+  .panel {
+    @apply card flex min-w-0 flex-col xl:min-h-0 xl:!p-3;
+  }
+  .panel-body {
+    @apply xl:min-h-0 xl:flex-1 xl:overflow-y-auto;
   }
   .input {
     @apply w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100
@@ -19,8 +119,9 @@ body {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium
       transition-colors disabled:opacity-50;
   }
+  /* ChatGPT-style primary button: black in light mode, near-white in dark mode */
   .btn-primary {
-    @apply btn bg-indigo-600 text-white hover:bg-indigo-500;
+    @apply btn bg-slate-50 text-slate-900 hover:bg-slate-200;
   }
   .btn-ghost {
     @apply btn text-slate-400 hover:bg-slate-800 hover:text-slate-100;

@@ -2,8 +2,8 @@ import { AlertCircle, Loader2 } from "lucide-react";
 
 export function SectionTitle({ icon: Icon, title, right }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-300">
+    <div className="mb-3 flex shrink-0 items-center justify-between gap-2 xl:mb-2">
+      <h2 className="flex items-center gap-2 whitespace-nowrap text-sm font-semibold uppercase tracking-wide text-slate-300">
         {Icon && <Icon size={16} className="text-indigo-400" />}
         {title}
       </h2>
@@ -22,10 +22,10 @@ export function Loading({ label = "Loading…" }) {
 
 export function ErrorNote({ message = "Couldn't load this section.", onRetry }) {
   return (
-    <div className="flex items-center gap-2 py-4 text-sm text-rose-400">
+    <div className="flex items-center gap-2 py-4 text-sm text-rose-300">
       <AlertCircle size={16} /> {message}
       {onRetry && (
-        <button onClick={() => onRetry()} className="ml-1 underline hover:text-rose-300">
+        <button onClick={() => onRetry()} className="ml-1 underline hover:text-rose-200">
           Retry
         </button>
       )}
@@ -45,7 +45,7 @@ export function Toggle({ checked, onChange, label }) {
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? "bg-indigo-600" : "bg-slate-700"}`}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${checked ? "left-[22px]" : "left-0.5"}`}
+          className={`absolute top-0.5 h-5 w-5 rounded-full shadow transition-all ${checked ? "left-[22px] bg-slate-900" : "left-0.5 bg-[#fff]"}`}
         />
       </button>
     </label>

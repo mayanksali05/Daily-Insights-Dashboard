@@ -3,17 +3,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 const SETTINGS_KEY = "dcc-settings";
 
 export const MARKET_OPTIONS = [
-  { key: "nifty50", label: "NIFTY 50" },
-  { key: "sensex", label: "SENSEX" },
-  { key: "sp500", label: "S&P 500" },
-  { key: "nasdaq", label: "NASDAQ" },
-  { key: "usdinr", label: "USD/INR" },
-  { key: "btc", label: "BTC" },
+  { key: "gold", label: "Gold (24K, per 10 g)" },
+  { key: "silver", label: "Silver (per kg)" },
 ];
 
 export const NEWS_OPTIONS = [
-  { key: "world", label: "World News" },
-  { key: "india", label: "India News" },
+  { key: "headlines", label: "World & India News" },
   { key: "tech", label: "Technology" },
   { key: "ai", label: "AI News" },
 ];
@@ -25,12 +20,14 @@ export const SECTION_OPTIONS = [
   { key: "news", label: "News" },
   { key: "tasks", label: "Tasks" },
   { key: "notes", label: "Quick Notes" },
+  { key: "notion", label: "Expenses (Notion)" },
 ];
 
 const DEFAULTS = {
   name: "Mayank",
+  theme: "light", // "light" | "dark"
   city: "",
-  sections: { weather: true, markets: true, brief: true, news: true, tasks: true, notes: true },
+  sections: { weather: true, markets: true, brief: true, news: true, tasks: true, notes: true, notion: true },
   markets: MARKET_OPTIONS.map((m) => m.key),
   news: NEWS_OPTIONS.map((n) => n.key),
 };
@@ -38,7 +35,18 @@ const DEFAULTS = {
 function load() {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    return { ...DEFAULTS, ...saved, sections: { ...DEFAULTS.sections, ...saved.sections } };
+    const valid = MARKET_OPTIONS.map((m) => m.key);
+    // Drop retired keys (e.g. old index choices); fall back to defaults if nothing valid is left.
+    const kept = Array.isArray(saved.markets) ? saved.markets.filter((k) => valid.includes(k)) : [];
+    const markets = kept.length ? kept : DEFAULTS.markets;
+    // News: old "world"/"india" choices become the combined "headlines" section.
+    const newsKeys = NEWS_OPTIONS.map((n) => n.key);
+    let news = DEFAULTS.news;
+    if (Array.isArray(saved.news)) {
+      const mapped = saved.news.map((k) => (k === "world" || k === "india" ? "headlines" : k));
+      news = newsKeys.filter((k) => mapped.includes(k));
+    }
+    return { ...DEFAULTS, ...saved, markets, news, sections: { ...DEFAULTS.sections, ...saved.sections } };
   } catch {
     return DEFAULTS;
   }

@@ -78,7 +78,7 @@ function TaskRow({ task, today, onToggle, onEdit, onDelete }) {
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
           <span className={`rounded-md px-1.5 py-0.5 font-medium ${p.cls}`}>{p.label}</span>
           {task.due_date && (
-            <span className={`flex items-center gap-1 ${overdue ? "font-medium text-rose-400" : "text-slate-500"}`}>
+            <span className={`flex items-center gap-1 ${overdue ? "font-medium text-rose-300" : "text-slate-500"}`}>
               {overdue && <AlertTriangle size={12} />}
               {overdue ? "Overdue · " : "Due "}
               {formatDue(task.due_date)}
@@ -89,14 +89,14 @@ function TaskRow({ task, today, onToggle, onEdit, onDelete }) {
       <button className="icon-btn" onClick={onEdit} aria-label="Edit task">
         <Pencil size={15} />
       </button>
-      <button className="icon-btn hover:!text-rose-400" onClick={onDelete} aria-label="Delete task">
+      <button className="icon-btn hover:!text-rose-300" onClick={onDelete} aria-label="Delete task">
         <Trash2 size={15} />
       </button>
     </li>
   );
 }
 
-export default function TasksPanel() {
+export default function TasksPanel({ className = "" }) {
   const [tasks, setTasks] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState("today");
@@ -141,7 +141,7 @@ export default function TasksPanel() {
   const emptyText = { today: "Nothing due today. Nice.", upcoming: "No upcoming tasks.", completed: "No completed tasks yet." };
 
   return (
-    <section className="card">
+    <section className={`panel ${className}`}>
       <SectionTitle
         icon={CheckSquare}
         title="Tasks"
@@ -183,6 +183,7 @@ export default function TasksPanel() {
         ))}
       </div>
 
+      <div className="panel-body">
       {error && <ErrorNote message="Couldn't reach the tasks API." onRetry={load} />}
       {!tasks && !error && <Loading />}
       {tasks && visible.length === 0 && <p className="py-4 text-center text-sm text-slate-500">{emptyText[tab]}</p>}
@@ -217,6 +218,7 @@ export default function TasksPanel() {
           )
         )}
       </ul>
+      </div>
     </section>
   );
 }
