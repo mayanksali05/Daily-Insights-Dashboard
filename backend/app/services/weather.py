@@ -1,4 +1,6 @@
 """Weather via Open-Meteo (free, no API key)."""
+import asyncio
+
 import httpx
 
 from ..cache import ttl_cache
@@ -37,32 +39,60 @@ def _describe(code: int) -> tuple[str, str]:
     return WMO.get(code, ("Unknown", "cloud"))
 
 
+# Built-in coordinates so the default city works even if the geocoding API is unreachable.
+KNOWN_PLACES = {
+    "ahmedabad": {"name": "Ahmedabad", "country": "India", "latitude": 23.0225, "longitude": 72.5714},
+}
+
+
+# City lookups rarely change, so cache them for a week (one less call per refresh).
+@ttl_cache(lambda: 7 * 24 * 3600)
+async def _geocode(city: str) -> dict:
+    if city.lower() == settings.weather_city.lower() and settings.weather_lat is not None and settings.weather_lon is not None:
+        return {"name": city, "country": "", "latitude": settings.weather_lat, "longitude": settings.weather_lon}
+    if city.lower() in KNOWN_PLACES:
+        return KNOWN_PLACES[city.lower()]
+    res = await _get(GEO_URL, {"name": city, "count": 1})
+    results = res.json().get("results")
+    if not results:
+        raise ValueError(f"Location '{city}' not found")
+    return results[0]
+
+
+async def _get(url: str, params: dict) -> httpx.Response:
+    """GET with one retry: shared cloud IPs occasionally get a 429/5xx or a timeout."""
+    last: Exception | None = None
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=10, headers={"User-Agent": "DailyCommandCenter/1.0"}) as client:
+                res = await client.get(url, params=params)
+            res.raise_for_status()
+            return res
+        except (httpx.HTTPStatusError, httpx.TransportError) as e:
+            last = e
+            if attempt == 0:
+                await asyncio.sleep(1.5)
+    raise last  # type: ignore[misc]
+
+
 @ttl_cache(lambda: settings.cache_ttl_weather)
 async def get_weather(city: str | None = None) -> dict:
     city = (city or settings.weather_city).strip()
-    async with httpx.AsyncClient(timeout=10) as client:
-        geo = await client.get(GEO_URL, params={"name": city, "count": 1})
-        geo.raise_for_status()
-        results = geo.json().get("results")
-        if not results:
-            raise ValueError(f"Location '{city}' not found")
-        place = results[0]
-
-        res = await client.get(
-            FORECAST_URL,
-            params={
-                "latitude": place["latitude"],
-                "longitude": place["longitude"],
-                "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
-                "wind_speed_10m,weather_code",
-                "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
-                "precipitation_probability_max",
-                "timezone": "auto",
-                "forecast_days": 5,
-            },
-        )
-        res.raise_for_status()
-        data = res.json()
+    place = await _geocode(city)
+    res = await _get(
+        FORECAST_URL,
+        {
+            "latitude": place["latitude"],
+            "longitude": place["longitude"],
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
+            "wind_speed_10m,weather_code",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,"
+            "precipitation_probability_max",
+            "timezone": "auto",
+            "forecast_days": 5,
+        },
+    )
+    data = res.json()
 
     cur = data["current"]
     label, icon = _describe(cur["weather_code"])

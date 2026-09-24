@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     weather_city: str = "Ahmedabad"
+    # Optional coordinates for WEATHER_CITY (skips the city lookup). Ahmedabad is built in.
+    weather_lat: float | None = None
+    weather_lon: float | None = None
     # Applied to gold/silver USD->INR conversion. India's rate was raised to 15% in May 2026.
     import_duty_percent: float = 15.0
     cache_ttl_weather: int = 900

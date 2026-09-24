@@ -5,6 +5,10 @@ import httpx
 
 from fastapi import APIRouter, HTTPException, Query
 
+from pymongo import errors as mongo_errors
+
+from ..config import settings
+from ..db import get_db
 from ..services import brief, markets, news, notion, notion_expenses, weather
 
 router = APIRouter(prefix="/api", tags=["live-info"])
@@ -17,7 +21,8 @@ async def get_weather(city: Optional[str] = None):
         return await weather.get_weather(city)
     except ValueError as e:
         raise HTTPException(404, str(e))
-    except Exception:
+    except Exception as e:
+        log.error("Weather failed: %s: %s", type(e).__name__, e)
         raise HTTPException(502, "Weather service unavailable")
 
 
@@ -66,3 +71,42 @@ async def get_notion_expenses():
 @router.get("/brief")
 async def get_brief():
     return await brief.get_brief()
+
+
+def _explain_db_error(e: Exception) -> str:
+    msg = str(e)[:300]
+    if isinstance(e, mongo_errors.OperationFailure) and ("auth" in msg.lower() or e.code in (8000, 18)):
+        return "Wrong database username or password in MONGODB_URI (Atlas → Database Access)."
+    if isinstance(e, mongo_errors.ServerSelectionTimeoutError):
+        return ("Can't reach the database. In Atlas → Network Access, allow 0.0.0.0/0 and wait until it's "
+                f"Active; also check the host in MONGODB_URI. Details: {msg}")
+    if isinstance(e, (mongo_errors.ConfigurationError, mongo_errors.InvalidURI)):
+        return ("MONGODB_URI is malformed or its host doesn't exist. If the password has special characters "
+                f"(@ : / ? # %), URL-encode them or use a letters-and-numbers password. Details: {msg}")
+    return f"{type(e).__name__}: {msg}"
+
+
+@router.get("/diagnostics")
+async def diagnostics():
+    """Signed-in only: explains why a section isn't loading. Never returns secrets."""
+    uri = settings.mongodb_uri
+    report: dict = {
+        "config": {
+            "mongodb_uri_set": uri != "mongodb://localhost:27017",
+            "mongodb_uri_still_has_placeholder": "<" in uri or ">" in uri,
+            "mongodb_database": settings.mongodb_db,
+            "notion_token_set": bool(settings.notion_token),
+            "weather_city": settings.weather_city,
+        }
+    }
+    try:
+        await get_db().command("ping")
+        report["database"] = {"ok": True}
+    except Exception as e:
+        report["database"] = {"ok": False, "error": _explain_db_error(e)}
+    try:
+        w = await weather.get_weather()
+        report["weather"] = {"ok": True, "city": w["city"], "temperature": w["temperature"]}
+    except Exception as e:
+        report["weather"] = {"ok": False, "error": f"{type(e).__name__}: {str(e)[:300]}"}
+    return report

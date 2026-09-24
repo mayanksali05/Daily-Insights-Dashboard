@@ -10,5 +10,6 @@ def get_db() -> AsyncIOMotorDatabase:
     if _client is None:
         # tz_aware: return UTC-aware datetimes so the API sends "...+00:00" and browsers
         # don't mistake UTC for local time (which showed new notes as "6h ago" in IST).
-        _client = AsyncIOMotorClient(settings.mongodb_uri, tz_aware=True)
+        # serverSelectionTimeoutMS: fail in 5 s (not 30 s) when the database is unreachable.
+        _client = AsyncIOMotorClient(settings.mongodb_uri, tz_aware=True, serverSelectionTimeoutMS=5000)
     return _client[settings.mongodb_db]
