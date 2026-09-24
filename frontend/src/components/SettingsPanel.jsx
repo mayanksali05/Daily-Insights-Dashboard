@@ -24,6 +24,13 @@ export default function SettingsPanel({ settings, update }) {
             />
           </label>
         </div>
+        <div className="mt-3 sm:max-w-xs">
+          <Toggle
+            label="Dark mode"
+            checked={settings.theme === "dark"}
+            onChange={(on) => update({ theme: on ? "dark" : "light" })}
+          />
+        </div>
       </section>
 
       <section className="card">

@@ -16,6 +16,8 @@ export const api = {
   markets: (keys) => request(`/api/markets?symbols=${keys.join(",")}`),
   news: (category, limit = 4) => request(`/api/news/${category}?limit=${limit}`),
   brief: () => request("/api/brief"),
+  notionRecent: (limit = 10) => request(`/api/notion/recent?limit=${limit}`),
+  notionExpenses: () => request("/api/notion/expenses"),
 
   listTasks: () => request("/api/tasks"),
   createTask: (body) => request("/api/tasks", { method: "POST", body }),

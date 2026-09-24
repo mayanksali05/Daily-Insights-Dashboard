@@ -22,10 +22,10 @@ function useNotes() {
 }
 
 /** Compact card for the dashboard: most recent notes, click to open in the editor. */
-export function RecentNotes({ onOpen }) {
+export function RecentNotes({ onOpen, className = "" }) {
   const { notes, error, load } = useNotes();
   return (
-    <section className="card h-full">
+    <section className={`panel ${className}`}>
       <SectionTitle
         icon={StickyNote}
         title="Quick Notes"
@@ -35,23 +35,27 @@ export function RecentNotes({ onOpen }) {
           </button>
         }
       />
-      {error && <ErrorNote message="Couldn't reach the notes API." onRetry={load} />}
-      {!notes && !error && <Loading />}
-      {notes?.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No notes yet.</p>}
-      <ul className="space-y-2">
-        {notes?.slice(0, 4).map((n) => (
-          <li key={n.id}>
-            <button
-              onClick={() => onOpen(n.id)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/50 p-3 text-left hover:border-slate-600"
-            >
-              <p className="truncate text-sm font-medium text-slate-100">{n.title || "Untitled"}</p>
-              <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{n.content || "Empty note"}</p>
-              <p className="mt-1.5 text-xs text-slate-500">{timeAgo(n.updated_at)}</p>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="panel-body">
+        {error && <ErrorNote message="Couldn't reach the notes API." onRetry={load} />}
+        {!notes && !error && <Loading />}
+        {notes?.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No notes yet.</p>}
+        <ul className="space-y-2">
+          {notes?.slice(0, 8).map((n) => (
+            <li key={n.id}>
+              <button
+                onClick={() => onOpen(n.id)}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/50 p-2.5 text-left hover:border-slate-600"
+              >
+                <p className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-sm font-medium text-slate-100">{n.title || "Untitled"}</span>
+                  <span className="shrink-0 text-xs text-slate-500">{timeAgo(n.updated_at)}</span>
+                </p>
+                <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{n.content || "Empty note"}</p>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -102,14 +106,14 @@ function Editor({ note, onSaved, onDeleted }) {
         value={content}
         onChange={(e) => setContent(e.target.value)}
       />
-      {error && <p className="text-sm text-rose-400">{error}</p>}
+      {error && <p className="text-sm text-rose-300">{error}</p>}
       <div className="flex items-center gap-2">
         <button className="btn-primary" onClick={save} disabled={saving || (!dirty && !!note) || (!title.trim() && !content.trim())}>
           {saving ? "Saving…" : "Save"}
         </button>
         {note && (
           <>
-            <button className="btn-ghost hover:!text-rose-400" onClick={remove}>
+            <button className="btn-ghost hover:!text-rose-300" onClick={remove}>
               <Trash2 size={15} /> Delete
             </button>
             <span className="ml-auto text-xs text-slate-500">Edited {timeAgo(note.updated_at)}</span>
@@ -152,7 +156,7 @@ export default function NotesPage({ initialId }) {
               <button
                 onClick={() => setSelected(n.id)}
                 className={`w-full rounded-xl px-3 py-2 text-left ${
-                  selected === n.id ? "bg-indigo-600/20" : "hover:bg-slate-800"
+                  selected === n.id ? "bg-slate-800" : "hover:bg-slate-800"
                 }`}
               >
                 <p className="truncate text-sm font-medium text-slate-100">{n.title || "Untitled"}</p>

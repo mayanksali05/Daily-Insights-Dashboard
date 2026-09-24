@@ -16,8 +16,9 @@ export function timeAgo(iso) {
 
 export function formatPrice(n, prefix = "") {
   if (n == null) return "—";
-  const digits = Math.abs(n) >= 1000 ? 2 : Math.abs(n) >= 10 ? 2 : 4;
-  return prefix + n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: digits });
+  // Large values (e.g. gold in rupees) read better without decimals.
+  const digits = Math.abs(n) >= 1000 ? 0 : 2;
+  return prefix + n.toLocaleString("en-IN", { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 // Local calendar date as YYYY-MM-DD (matches the backend's due_date format).

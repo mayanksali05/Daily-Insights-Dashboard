@@ -66,8 +66,28 @@ async def _fetch_feed(client: httpx.AsyncClient, source: str, url: str) -> list[
     return _parse(source, res.text)
 
 
-@ttl_cache(lambda: settings.cache_ttl_news)
+# Combined sections: key -> [(category, tag shown on each card)]
+COMBINED: dict[str, list[tuple[str, str]]] = {
+    "headlines": [("world", "World"), ("india", "India")],
+}
+CATEGORIES = set(FEEDS) | set(COMBINED)
+
+
 async def get_news(category: str, limit: int = 4) -> list[dict]:
+    if category in COMBINED:
+        parts = COMBINED[category]
+        lists = await asyncio.gather(*(_get_feed_news(c, limit) for c, _ in parts))
+        tagged = [[{**item, "tag": tag} for item in items] for items, (_, tag) in zip(lists, parts)]
+        # Alternate World / India so both stay visible.
+        merged = [item for group in zip(*tagged) for item in group]
+        longest = max(tagged, key=len, default=[])
+        merged += longest[len(merged) // max(len(tagged), 1):]
+        return merged[:limit]
+    return await _get_feed_news(category, limit)
+
+
+@ttl_cache(lambda: settings.cache_ttl_news)
+async def _get_feed_news(category: str, limit: int = 4) -> list[dict]:
     feeds = FEEDS.get(category)
     if not feeds:
         return []
