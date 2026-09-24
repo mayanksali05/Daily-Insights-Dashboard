@@ -49,7 +49,7 @@ export default function NotionCard({ className = "" }) {
         {error && (
           <ErrorNote
             onRetry={reload}
-            message={error.includes("401") ? "Notion token invalid. Check NOTION_TOKEN." : "Notion unavailable."}
+            message={error.includes("Notion token") ? "Notion token invalid. Check NOTION_TOKEN." : "Notion unavailable."}
           />
         )}
 

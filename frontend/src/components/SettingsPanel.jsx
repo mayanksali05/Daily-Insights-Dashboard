@@ -1,10 +1,10 @@
-import { Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 import { MARKET_OPTIONS, NEWS_OPTIONS, SECTION_OPTIONS } from "../hooks";
 import { SectionTitle, Toggle } from "./ui";
 
 const toggleIn = (list, key, on) => (on ? [...list, key] : list.filter((k) => k !== key));
 
-export default function SettingsPanel({ settings, update }) {
+export default function SettingsPanel({ settings, update, onLogout }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <section className="card md:col-span-2">
@@ -69,7 +69,14 @@ export default function SettingsPanel({ settings, update }) {
           ))}
         </section>
       </div>
-      <p className="text-xs text-slate-500 md:col-span-2">Settings are saved in this browser automatically.</p>
+      <div className="flex items-center justify-between gap-3 md:col-span-2">
+        <p className="text-xs text-slate-500">Settings are saved in this browser automatically.</p>
+        {onLogout && (
+          <button className="btn-ghost" onClick={onLogout}>
+            <LogOut size={15} /> Sign out
+          </button>
+        )}
+      </div>
     </div>
   );
 }

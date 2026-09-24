@@ -41,7 +41,7 @@ async def get_notion_recent(limit: int = Query(10, ge=1, le=25)):
     except notion.NotionNotConfigured:
         return {"configured": False, "pages": []}
     except notion.NotionAuthError:
-        raise HTTPException(401, "Notion token is invalid or lacks access")
+        raise HTTPException(502, "Notion token is invalid or lacks access")  # not 401: that means "signed out"
     except Exception:
         raise HTTPException(502, "Notion is unavailable")
 
@@ -53,7 +53,7 @@ async def get_notion_expenses():
     except notion.NotionNotConfigured:
         return {"configured": False}
     except notion.NotionAuthError:
-        raise HTTPException(401, "Notion token is invalid or lacks access")
+        raise HTTPException(502, "Notion token is invalid or lacks access")  # not 401: that means "signed out"
     except httpx.HTTPStatusError as e:
         msg = e.response.text[:300]
         log.error("Notion API error %s on %s: %s", e.response.status_code, e.request.url, msg)

@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Used for "this month" boundaries
     timezone: str = "Asia/Kolkata"
 
+    # Login for the deployed dashboard. Empty password = no login (local dev).
+    dashboard_password: str = ""
+    # Signs the session cookie; set a long random value in production.
+    secret_key: str = ""
+
     brief_provider: str = "extractive"
     llm_api_key: str = ""
 

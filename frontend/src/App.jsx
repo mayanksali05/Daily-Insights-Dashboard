@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { api, UNAUTHORIZED_EVENT } from "./api";
 import BriefCard from "./components/BriefCard";
 import Clock from "./components/Clock";
 import Header from "./components/Header";
+import Login from "./components/Login";
 import MarketCards from "./components/MarketCards";
 import NewsSections, { NewsSection } from "./components/NewsSection";
 import NotesPage, { RecentNotes } from "./components/NotesPanel";
@@ -24,6 +26,23 @@ export default function App() {
   }, [settings.theme]);
   const setTheme = (theme) => update({ theme });
 
+  // Sign-in: "checking" until /api/auth/status answers; the deployed app requires a password.
+  const [auth, setAuth] = useState({ state: "checking", required: false });
+  useEffect(() => {
+    api
+      .authStatus()
+      .then((r) => setAuth({ state: r.authenticated ? "in" : "out", required: r.auth_required }))
+      .catch(() => setAuth({ state: "in", required: false })); // backend down: let cards show their errors
+    const onExpired = () => setAuth((a) => ({ ...a, state: "out" }));
+    window.addEventListener(UNAUTHORIZED_EVENT, onExpired);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onExpired);
+  }, []);
+  const logout = async () => {
+    await api.logout().catch(() => {});
+    setView("dashboard");
+    setAuth((a) => ({ ...a, state: "out" }));
+  };
+
   const openNote = (id) => {
     setNoteId(id);
     setView("notes");
@@ -33,6 +52,17 @@ export default function App() {
   // AI news sits in row 2; the other news categories stay in row 3.
   const showAi = s.news && settings.news.includes("ai");
   const rowThreeNews = settings.news.filter((c) => c !== "ai");
+
+  if (auth.state === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-slate-500">
+        <Loader2 size={20} className="animate-spin" />
+      </div>
+    );
+  }
+  if (auth.state === "out") {
+    return <Login onSuccess={() => setAuth((a) => ({ ...a, state: "in" }))} />;
+  }
 
   return (
     <div className="min-h-screen">
@@ -87,7 +117,7 @@ export default function App() {
         )}
         {view === "settings" && (
           <PageShell title="Settings" onBack={() => setView("dashboard")}>
-            <SettingsPanel settings={settings} update={update} />
+            <SettingsPanel settings={settings} update={update} onLogout={auth.required ? logout : null} />
           </PageShell>
         )}
       </main>

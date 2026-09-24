@@ -1,0 +1,32 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# Values marked `sync: false` are secrets you type in on Render during setup.
+services:
+  - type: web
+    name: daily-command-center
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: MONGODB_URI            # MongoDB Atlas connection string (mongodb+srv://...)
+        sync: false
+      - key: DASHBOARD_PASSWORD     # password you'll use to sign in
+        sync: false
+      - key: NOTION_TOKEN           # Notion integration secret
+        sync: false
+      - key: SECRET_KEY             # signs login cookies; generated automatically
+        generateValue: true
+      - key: MONGODB_DB
+        value: daily_command_center
+      - key: NOTION_EXPENSES_PAGE
+        value: Expenses
+      - key: WEATHER_CITY
+        value: Ahmedabad
+      - key: TIMEZONE
+        value: Asia/Kolkata
+      - key: IMPORT_DUTY_PERCENT
+        value: "15"
+      - key: CORS_ORIGINS           # frontend is served from the same URL, so none needed
+        value: ""

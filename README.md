@@ -25,6 +25,43 @@ npm run dev                     # http://localhost:5173
 
 The Vite dev server proxies `/api` to the backend, so the browser never talks to third parties directly.
 
+## Deploy to Render (free)
+
+The repo includes a `Dockerfile` (builds the frontend and backend into one image) and a `render.yaml` Blueprint (free web service in Singapore, health check on `/api/health`, auto-deploy on every push to `main`). Deployed, the dashboard **requires a password** (`DASHBOARD_PASSWORD`); a successful sign-in lasts 30 days, and 5 wrong attempts lock that IP out for 15 minutes.
+
+1. **Database: MongoDB Atlas (free M0).** Create a free cluster (AWS, **Mumbai**), add a database user, and under *Network Access* allow `0.0.0.0/0` (Render's free plan has no fixed IP). Copy the connection string (`mongodb+srv://user:pass@.../?retryWrites=true&w=majority`).
+2. **Push this repo to GitHub** (`main` branch). Check `backend/.env` is **not** committed.
+3. **Render:** *New → Blueprint* → pick the repo. Render reads `render.yaml` and asks for the secrets:
+   - `MONGODB_URI`: the Atlas connection string
+   - `DASHBOARD_PASSWORD`: the password you'll sign in with
+   - `NOTION_TOKEN`: your Notion integration secret
+   (`SECRET_KEY` is generated automatically; other settings have defaults you can change later under *Environment*.)
+4. Wait for the first build (a few minutes), open `https://<your-service>.onrender.com`, and sign in.
+
+Free-plan behaviour: the service sleeps after 15 minutes with no visitors and takes about a minute to wake. While the dashboard is open it polls every 30–60 s, so it stays awake. One always-on free service fits within Render's 750 free hours a month.
+
+For Lively Wallpaper or an app window, use the Render URL instead of `http://localhost:8000` and sign in once.
+
+## Show it on your desktop (always on)
+
+The backend can also serve the built frontend, so the whole dashboard runs as **one program at http://localhost:8000**.
+
+1. **Build the frontend** (again after any frontend code change):
+   ```
+   cd frontend
+   npm run build
+   ```
+2. **Start it:** double-click `start-dashboard.bat` (shows a console window), or `start-dashboard-hidden.vbs` (runs in the background). Stop it with `stop-dashboard.bat`.
+3. **Start automatically at login:** press `Win + R`, type `shell:startup`, and put a shortcut to `start-dashboard-hidden.vbs` in that folder.
+4. **MongoDB must be running at boot:** if you installed MongoDB with "Install as a Service", it already is (check *Services → MongoDB Server* is *Automatic*). If you use MongoDB Atlas, nothing to do.
+
+**Display options**
+
+- **As your desktop wallpaper (live):** install [Lively Wallpaper](https://www.rocksdanister.com/lively/) (free, also on the Microsoft Store). Click **+ Add Wallpaper**, paste `http://localhost:8000`, and set it as the wallpaper. Enable mouse input for wallpapers in Lively's settings if you want to tick tasks or click news from the desktop.
+- **As its own window (no browser bars):** `msedge --app=http://localhost:8000` (or `chrome --app=...`). Pin it to the taskbar. Add `--start-fullscreen` for a dedicated screen.
+
+Everything refreshes on its own: clock every second, prices every minute, Notion every 30 s, news and brief every 10 min, weather every 15 min.
+
 ## Structure
 
 ```
