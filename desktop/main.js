@@ -1,9 +1,10 @@
 // Daily Command Center — desktop widget.
 // A frameless window that shows the hosted dashboard, with a tray icon for options.
 // Sign-in, data and updates all come from the website, so the widget rarely needs reinstalling.
-const { app, BrowserWindow, Menu, Tray, nativeImage, screen, shell, globalShortcut } = require("electron");
+const { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, screen, shell, globalShortcut } = require("electron");
 const fs = require("fs");
 const path = require("path");
+const { NowPlaying } = require("./media");
 
 const CONFIG = JSON.parse(fs.readFileSync(path.join(__dirname, "config.json"), "utf8"));
 const DASHBOARD_URL = (process.env.DCC_URL || CONFIG.dashboardUrl).replace(/\/+$/, "");
@@ -15,6 +16,7 @@ let win = null;
 let tray = null;
 let retryTimer = null;
 let quitting = false;
+let nowPlaying = null;
 
 // ---------- preferences (window position, options) ----------
 const PREFS_FILE = path.join(app.getPath("userData"), "widget-prefs.json");
@@ -94,6 +96,7 @@ function createWindow() {
     title: "Daily Command Center",
     icon: path.join(__dirname, "build", "icon.png"),
     webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -265,6 +268,26 @@ function createTray() {
   buildTrayMenu();
 }
 
+// ---------- now playing (Windows media session) ----------
+function fromDashboard(event) {
+  return isDashboard(event.senderFrame?.url || "");
+}
+
+function startNowPlaying() {
+  nowPlaying = new NowPlaying({
+    scriptDir: path.join(app.getPath("userData"), "helpers"),
+    onChange: (snapshot) => {
+      if (win && !win.isDestroyed() && isDashboard(win.webContents.getURL())) win.webContents.send("now-playing", snapshot);
+    },
+    log: (msg) => console.log(msg),
+  });
+  ipcMain.handle("now-playing:get", (event) => (fromDashboard(event) ? nowPlaying.snapshot() : null));
+  ipcMain.on("now-playing:command", (event, cmd) => {
+    if (fromDashboard(event)) nowPlaying.command(String(cmd));
+  });
+  nowPlaying.start();
+}
+
 // ---------- app lifecycle ----------
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -285,6 +308,7 @@ if (!app.requestSingleInstanceLock()) {
       prefs.firstRun = false;
       savePrefs();
     }
+    startNowPlaying();
     createWindow();
     createTray();
     globalShortcut.register("CommandOrControl+Shift+D", toggleWindow);
@@ -293,6 +317,9 @@ if (!app.requestSingleInstanceLock()) {
   app.on("before-quit", () => {
     quitting = true;
   });
-  app.on("will-quit", () => globalShortcut.unregisterAll());
+  app.on("will-quit", () => {
+    globalShortcut.unregisterAll();
+    nowPlaying?.stop();
+  });
   app.on("window-all-closed", (e) => e.preventDefault()); // keep running in the tray
 }

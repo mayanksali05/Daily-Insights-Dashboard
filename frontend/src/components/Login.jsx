@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Activity, KeyRound, Loader2, Lock, Mail, User } from "lucide-react";
+import { KeyRound, Loader2, Lock, Mail, User } from "lucide-react";
 import { api } from "../api";
+import Logo from "./Logo";
 
 function Field({ icon: Icon, ...props }) {
   return (
@@ -42,8 +43,8 @@ export default function Login({ signupMode, onSuccess }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <form onSubmit={submit} className="card w-full max-w-sm space-y-4">
-        <div className="flex items-center gap-2 text-white">
-          <Activity size={20} />
+        <div className="flex items-center gap-2.5 text-white">
+          <Logo size={32} />
           <h1 className="text-lg font-semibold">Daily Command Center</h1>
         </div>
 

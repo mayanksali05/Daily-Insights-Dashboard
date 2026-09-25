@@ -19,6 +19,9 @@
     "productName": "Daily Command Center",
     "files": [
       "main.js",
+      "media.js",
+      "preload.js",
+      "media/**",
       "config.json",
       "pages/**",
       "build/icon.png"

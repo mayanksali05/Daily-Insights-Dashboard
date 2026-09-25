@@ -5,7 +5,7 @@ import { formatPrice } from "../utils";
 import { ErrorNote, Loading } from "./ui";
 
 // Each card is one cell of the first-row flex container in App.jsx.
-const CELL = "min-w-0 basis-full sm:basis-[calc(50%-0.375rem)] xl:basis-0 xl:flex-1";
+const CELL = "min-w-0 basis-full max-xl:order-1 sm:basis-[calc(50%-0.375rem)] xl:basis-0 xl:flex-1";
 
 function Sparkline({ points, up }) {
   if (!points || points.length < 2) return <div className="h-10" />;

@@ -1,3 +1,5 @@
+<img src="frontend/public/favicon.svg" width="72" alt="Daily Command Center logo">
+
 # Daily Command Center
 
 A personal dark-mode dashboard: weather, markets, news, an AI-ready daily brief, tasks and notes.

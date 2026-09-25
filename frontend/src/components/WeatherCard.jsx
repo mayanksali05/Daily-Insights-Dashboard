@@ -19,11 +19,11 @@ function WIcon({ name, size = 20, className = "" }) {
 }
 
 // Compact horizontal weather card for the first row: current conditions + 5-day strip.
-export default function WeatherCard({ city }) {
+export default function WeatherCard({ city, className = "" }) {
   const { data, loading, error, reload } = useFetch(() => api.weather(city), [city], 15 * 60 * 1000);
 
   return (
-    <section className="card flex min-w-0 basis-full flex-wrap items-center gap-x-4 gap-y-3 !p-3 sm:basis-0 sm:flex-1 xl:flex-none xl:basis-auto xl:flex-nowrap xl:gap-x-5 xl:px-5">
+    <section className={`card flex min-w-0 basis-full flex-wrap items-center gap-x-4 gap-y-3 !p-3 xl:flex-none xl:basis-auto xl:flex-nowrap xl:gap-x-5 xl:px-5 ${className}`}>
       {loading && <Loading />}
       {error && <ErrorNote onRetry={reload} message="Weather unavailable." />}
       {data && (

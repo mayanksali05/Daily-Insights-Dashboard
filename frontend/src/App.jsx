@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { api, UNAUTHORIZED_EVENT } from "./api";
 import BriefCard from "./components/BriefCard";
-import Clock from "./components/Clock";
 import Header from "./components/Header";
 import Login from "./components/Login";
 import MarketCards from "./components/MarketCards";
 import NewsSections, { NewsSection } from "./components/NewsSection";
 import NotesPage, { RecentNotes } from "./components/NotesPanel";
 import NotionCard from "./components/NotionCard";
+import NowPlayingCard from "./components/NowPlayingCard";
 import SettingsPanel from "./components/SettingsPanel";
 import TasksPanel from "./components/TasksPanel";
 import WeatherCard from "./components/WeatherCard";
@@ -99,7 +99,11 @@ function Dashboard({ user, onLogout, onUserChanged }) {
         }
       >
         {isDashboard && (
-          <div className="flex flex-col gap-3 xl:h-full">
+          // Below xl the row wrappers become `contents`, so every tile sits in one wrapping list and
+          // `max-xl:order-*` puts the everyday things first on phones and tablets:
+          // gold, silver → tasks, expenses → weather → notes, brief → AI news → news → now playing.
+          // On xl screens (desktop / widget) the three rows below apply unchanged.
+          <div className="flex flex-wrap gap-3 xl:h-full xl:flex-col xl:flex-nowrap">
             <Header
               name={settings.name || user.name}
               onOpenSettings={openSettings}
@@ -107,28 +111,30 @@ function Dashboard({ user, onLogout, onUserChanged }) {
               onThemeChange={setTheme}
             />
 
-            {/* Row 1: gold, silver, clock, weather */}
-            <div className="flex flex-wrap gap-3 xl:h-32 xl:shrink-0 xl:flex-nowrap">
+            {/* Row 1: gold, silver, now playing, weather */}
+            <div className="flex flex-wrap gap-3 max-xl:contents xl:h-32 xl:shrink-0 xl:flex-nowrap">
               {s.markets && <MarketCards keys={settings.markets} />}
-              <Clock />
-              {s.weather && <WeatherCard city={settings.city} />}
+              <NowPlayingCard className="max-xl:order-9" />
+              {s.weather && <WeatherCard className="max-xl:order-4" city={settings.city} />}
             </div>
 
             {/* Row 2: brief + AI news + notes + Notion */}
             {(s.brief || showAi || s.notes || s.notion) && (
-              <div className="flex flex-col gap-3 xl:min-h-0 xl:flex-1 xl:flex-row">
-                {s.brief && <BriefCard className="xl:flex-[1.5]" />}
-                {showAi && <NewsSection category="ai" className="xl:flex-1" />}
-                {s.notes && <RecentNotes className="xl:flex-1" onOpen={openNote} />}
-                {s.notion && <NotionCard className="xl:flex-1" onOpenSettings={openSettings} />}
+              <div className="flex flex-col gap-3 max-xl:contents xl:min-h-0 xl:flex-1 xl:flex-row">
+                {s.brief && <BriefCard className="basis-full max-xl:order-6 md:max-xl:basis-[calc(50%-0.375rem)] md:max-xl:grow xl:flex-[1.5]" />}
+                {showAi && <NewsSection category="ai" className="basis-full max-xl:order-7 xl:flex-1" />}
+                {s.notes && <RecentNotes className="basis-full max-xl:order-5 md:max-xl:basis-[calc(50%-0.375rem)] md:max-xl:grow xl:flex-1" onOpen={openNote} />}
+                {s.notion && (
+                  <NotionCard className="basis-full max-xl:order-3 md:max-xl:basis-[calc(50%-0.375rem)] md:max-xl:grow xl:flex-1" onOpenSettings={openSettings} />
+                )}
               </div>
             )}
 
             {/* Row 3: world / india / tech news + tasks */}
             {((s.news && rowThreeNews.length > 0) || s.tasks) && (
-              <div className="flex flex-col gap-3 xl:min-h-0 xl:flex-[1.5] xl:flex-row">
-                {s.news && <NewsSections className="xl:flex-[2]" categories={rowThreeNews} />}
-                {s.tasks && <TasksPanel className="xl:flex-1" />}
+              <div className="flex flex-col gap-3 max-xl:contents xl:min-h-0 xl:flex-[1.5] xl:flex-row">
+                {s.news && <NewsSections className="basis-full max-xl:order-8 xl:flex-[2]" categories={rowThreeNews} />}
+                {s.tasks && <TasksPanel className="basis-full max-xl:order-2 md:max-xl:basis-[calc(50%-0.375rem)] md:max-xl:grow xl:flex-1" />}
               </div>
             )}
           </div>
