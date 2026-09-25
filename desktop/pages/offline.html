@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Daily Command Center</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #f3f3f3; --fg: #1a1a1a; --muted: #6b6b6b; --btn: #0d0d0d; --btn-fg: #fff; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #212121; --fg: #ececec; --muted: #9b9b9b; --btn: #ececec; --btn-fg: #212121; } }
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+             background: var(--bg); color: var(--fg); font: 14px ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+             -webkit-app-region: drag; user-select: none; }
+      h1 { font-size: 16px; font-weight: 600; margin: 0; }
+      p { margin: 0; color: var(--muted); text-align: center; max-width: 340px; line-height: 1.5; }
+      a { -webkit-app-region: no-drag; background: var(--btn); color: var(--btn-fg); text-decoration: none;
+          padding: 8px 16px; border-radius: 8px; font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <h1>Can't reach the dashboard</h1>
+    <p>Check your internet connection. Retrying in <span id="n">20</span> seconds…</p>
+    <a id="retry" href="#">Retry now</a>
+    <script>
+      const q = new URLSearchParams(location.search);
+      const url = q.get("url");
+      let n = Number(q.get("retry") || 20);
+      document.getElementById("retry").href = url;
+      const el = document.getElementById("n");
+      el.textContent = n;
+      setInterval(() => { if (n > 0) el.textContent = --n; }, 1000);
+    </script>
+  </body>
+</html>

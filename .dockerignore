@@ -1,0 +1,15 @@
+.git
+**/node_modules
+**/dist
+**/myvenv
+**/venv
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.env
+**/.env.*
+!**/.env.example
+*.bat
+*.vbs
+desktop
+.github

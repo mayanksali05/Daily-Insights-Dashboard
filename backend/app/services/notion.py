@@ -3,7 +3,7 @@
 Setup (one time):
   1. Create an internal integration at https://www.notion.so/profile/integrations
      and copy its secret.
-  2. Put it in backend/.env as NOTION_TOKEN=...
+  2. Paste it in the dashboard: Settings -> Notion (stored encrypted, per user).
   3. In Notion, open each top-level page you want on the dashboard ->
      "..." menu -> Connections -> add your integration. Sub-pages are included.
 
@@ -45,14 +45,14 @@ def _icon(obj: dict) -> str | None:
 
 
 @ttl_cache(lambda: settings.cache_ttl_notion)
-async def get_recent(limit: int = 10) -> list[dict]:
-    if not settings.notion_token:
+async def get_recent(token: str, limit: int = 10) -> list[dict]:
+    if not token:
         raise NotionNotConfigured()
     async with httpx.AsyncClient(timeout=10) as client:
         res = await client.post(
             SEARCH_URL,
             headers={
-                "Authorization": f"Bearer {settings.notion_token}",
+                "Authorization": f"Bearer {token}",
                 "Notion-Version": NOTION_VERSION,
                 "Content-Type": "application/json",
             },

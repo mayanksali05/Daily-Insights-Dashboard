@@ -1,17 +1,48 @@
 // All calls go through the FastAPI backend; the browser never sees third-party API keys.
 const BASE = import.meta.env.VITE_API_URL || "";
 
+// Fired when the session has expired so App can show the sign-in screen.
+export const UNAUTHORIZED_EVENT = "dcc:unauthorized";
+
 async function request(path, options = {}) {
   const res = await fetch(BASE + path, {
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  if (!res.ok) throw new Error(`Request failed (${res.status})`);
+  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
+  }
+  if (!res.ok) {
+    let detail = "";
+    try {
+      const d = (await res.json()).detail;
+      // FastAPI validation errors are a list: show the first message.
+      detail = typeof d === "string" ? d : Array.isArray(d) ? String(d[0]?.msg || "").replace(/^Value error, /, "") : "";
+    } catch {
+      /* not JSON */
+    }
+    const err = new Error(`Request failed (${res.status})${detail ? `: ${detail}` : ""}`);
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
+  }
   return res.status === 204 ? null : res.json();
 }
 
 export const api = {
+  authStatus: () => request("/api/auth/status"),
+  login: (email, password) => request("/api/auth/login", { method: "POST", body: { email, password } }),
+  signup: (body) => request("/api/auth/signup", { method: "POST", body }),
+  logout: () => request("/api/auth/logout", { method: "POST" }),
+
+  me: () => request("/api/me"),
+  saveSettings: (settings) => request("/api/me/settings", { method: "PUT", body: settings }),
+  connectNotion: (token, page) => request("/api/me/notion", { method: "PUT", body: { token, page } }),
+  disconnectNotion: () => request("/api/me/notion", { method: "DELETE" }),
+  changePassword: (current, next) => request("/api/me/password", { method: "POST", body: { current, new: next } }),
+
   weather: (city) => request(`/api/weather${city ? `?city=${encodeURIComponent(city)}` : ""}`),
   markets: (keys) => request(`/api/markets?symbols=${keys.join(",")}`),
   news: (category, limit = 4) => request(`/api/news/${category}?limit=${limit}`),

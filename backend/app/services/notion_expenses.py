@@ -1,6 +1,6 @@
 """This month's total spend from a Notion "Expenses" page.
 
-The page is found by title (NOTION_EXPENSES_PAGE, default "Expenses") or by a
+The page is found by title (each user sets it in Settings, default "Expenses") or by a
 Notion page/database URL or ID in the same setting. Its layout is detected
 automatically:
 
@@ -179,8 +179,8 @@ def _title_of(obj: dict) -> str:
     return ""
 
 
-async def _find_target(api: _Client) -> dict | None:
-    ref = settings.notion_expenses_page.strip()
+async def _find_target(api: _Client, page_ref: str) -> dict | None:
+    ref = page_ref.strip()
     ids = re.findall(r"[0-9a-f]{32}", ref.replace("-", "").lower())
     if ids:
         for kind in ("databases", "pages"):
@@ -197,6 +197,12 @@ async def _find_target(api: _Client) -> dict | None:
 
 
 # ---------- summing ----------
+
+def _latest(*values: str | None) -> str | None:
+    """Most recent Notion timestamp (they are all UTC ISO strings, so they sort as text)."""
+    vals = [v for v in values if v]
+    return max(vals) if vals else None
+
 
 def _in_month(d: date | None, ym: tuple[int, int]) -> bool:
     return d is not None and (d.year, d.month) == ym
@@ -256,7 +262,8 @@ async def _sum_database(api: _Client, db: dict, ym: tuple[int, int]) -> dict:
             total += n
             count += 1
     how = f"database · “{amount_prop}”" + (f" by “{date_prop}”" if date_prop else " by date added")
-    return {"total": total, "count": count, "method": how}
+    last = _latest(*(r.get("last_edited_time") for r in rows))
+    return {"total": total, "count": count, "method": how, "last": last}
 
 
 def _pick_column(rows: list[list[str]], header: list[str] | None, header_re: re.Pattern, test) -> int | None:
@@ -274,8 +281,9 @@ def _pick_column(rows: list[list[str]], header: list[str] | None, header_re: re.
     return best
 
 
-async def _sum_table(api: _Client, block: dict, ym, forced: bool) -> tuple[float, int]:
+async def _sum_table(api: _Client, block: dict, ym, forced: bool) -> tuple[float, int, str | None]:
     raw_rows = await api.paginate("GET", f"/blocks/{block['id']}/children")
+    last = _latest(block.get("last_edited_time"), *(r.get("last_edited_time") for r in raw_rows))
     rows = [r for r in raw_rows if r.get("type") == "table_row"]
     cells = [[_plain(c) for c in r["table_row"]["cells"]] for r in rows]
     rich = [r["table_row"]["cells"] for r in rows]
@@ -308,12 +316,13 @@ async def _sum_table(api: _Client, block: dict, ym, forced: bool) -> tuple[float
         if n:
             total += n
             count += 1
-    return total, count
+    return total, count, last
 
 
 async def _sum_blocks(api: _Client, parent_id: str, ym, forced: bool = False) -> dict:
     blocks = await api.paginate("GET", f"/blocks/{parent_id}/children")
     total, count, kinds = 0.0, 0, set()
+    last = _latest(*(b.get("last_edited_time") for b in blocks))
     section: tuple[int, int] | None = None  # month from the nearest month heading
 
     for b in blocks:
@@ -323,26 +332,26 @@ async def _sum_blocks(api: _Client, parent_id: str, ym, forced: bool = False) ->
             if b.get("has_children"):  # toggle heading / toggle holding that month's entries
                 if month is None or month == ym or forced:
                     r = await _sum_blocks(api, b["id"], ym, forced=forced or month == ym)
-                    total, count = total + r["total"], count + r["count"]
+                    total, count, last = total + r["total"], count + r["count"], _latest(last, r["last"])
                     kinds.update(k for k in r["method"].split(", ") if k != "nothing recognised")
                 continue
             section = month
             continue
         if t == "child_database":
             r = await _sum_database(api, {"id": b["id"]}, ym)
-            total, count = total + r["total"], count + r["count"]
+            total, count, last = total + r["total"], count + r["count"], _latest(last, r["last"])
             kinds.add("database")
         elif t == "child_page":
             if _month_heading(b["child_page"].get("title", "")) == ym:
                 r = await _sum_blocks(api, b["id"], ym, forced=True)
-                total, count = total + r["total"], count + r["count"]
+                total, count, last = total + r["total"], count + r["count"], _latest(last, r["last"])
                 kinds.add("monthly page")
         elif t == "table":
             in_section = section is not None
             if in_section and section != ym and not forced:
                 continue
-            s, c = await _sum_table(api, b, ym, forced or in_section)
-            total, count = total + s, count + c
+            s, c, tl = await _sum_table(api, b, ym, forced or in_section)
+            total, count, last = total + s, count + c, _latest(last, tl)
             kinds.add("table")
         elif t in TEXT_BLOCKS:
             rich = b[t].get("rich_text")
@@ -366,25 +375,27 @@ async def _sum_blocks(api: _Client, parent_id: str, ym, forced: bool = False) ->
             count += 1
             kinds.add("text lines")
 
-    return {"total": total, "count": count, "method": ", ".join(sorted(kinds)) or "nothing recognised"}
+    return {"total": total, "count": count, "method": ", ".join(sorted(kinds)) or "nothing recognised", "last": last}
 
 
 @ttl_cache(lambda: settings.cache_ttl_notion)
-async def get_month_total() -> dict:
-    if not settings.notion_token:
+async def get_month_total(token: str, page_ref: str = "Expenses") -> dict:
+    """Month total for one user's Notion (their token + expenses page title/URL)."""
+    page_ref = (page_ref or "Expenses").strip()
+    if not token:
         raise NotionNotConfigured()
     now = _now()
     ym = (now.year, now.month)
     headers = {
-        "Authorization": f"Bearer {settings.notion_token}",
+        "Authorization": f"Bearer {token}",
         "Notion-Version": NOTION_VERSION,
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=15, headers=headers) as http:
         api = _Client(http)
-        target = await _find_target(api)
+        target = await _find_target(api, page_ref)
         if not target:
-            return {"configured": True, "found": False, "page": settings.notion_expenses_page}
+            return {"configured": True, "found": False, "page": page_ref}
         if target.get("object") == "database":
             result = await _sum_database(api, target, ym)
         else:
@@ -393,11 +404,12 @@ async def get_month_total() -> dict:
     return {
         "configured": True,
         "found": True,
-        "page": _title_of(target) or settings.notion_expenses_page,
+        "page": _title_of(target) or page_ref,
         "url": target.get("url"),
         "month": now.strftime("%B %Y"),
         "total": round(result["total"], 2),
         "count": result["count"],
         "method": result["method"],
-        "last_edited": target.get("last_edited_time"),
+        # newest edit of any entry; the page's own timestamp doesn't change when rows are added
+        "last_edited": _latest(target.get("last_edited_time"), result.get("last")),
     }

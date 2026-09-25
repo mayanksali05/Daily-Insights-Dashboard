@@ -16,7 +16,7 @@ function NotionLogo() {
 }
 
 // This month's total from the Notion "Expenses" page. Polls every 30 s and on tab focus.
-export default function NotionCard({ className = "" }) {
+export default function NotionCard({ className = "", onOpenSettings }) {
   const { data, loading, error, reload } = useFetch(api.notionExpenses, [], POLL_MS);
   useNow(15000); // keep "edited 2m ago" current
 
@@ -49,24 +49,27 @@ export default function NotionCard({ className = "" }) {
         {error && (
           <ErrorNote
             onRetry={reload}
-            message={error.includes("401") ? "Notion token invalid. Check NOTION_TOKEN." : "Notion unavailable."}
+            message={error.includes("Notion token") ? "Notion secret invalid. Reconnect it in Settings." : "Notion unavailable."}
           />
         )}
 
         {data && !data.configured && (
-          <div className="space-y-1.5 text-xs text-slate-400">
-            <p className="text-sm text-slate-300">Notion isn't connected yet.</p>
-            <p>
-              Add <code className="text-slate-300">NOTION_TOKEN=…</code> to{" "}
-              <code className="text-slate-300">backend/.env</code> and restart the backend. See the README.
-            </p>
+          <div className="space-y-2 text-sm text-slate-400">
+            <p className="text-slate-300">Show this month's spending from your Notion expenses page.</p>
+            <button className="btn-primary !py-1.5" onClick={onOpenSettings}>
+              Connect Notion
+            </button>
           </div>
         )}
 
         {data?.configured && !data.found && (
           <p className="text-sm text-slate-400">
-            Couldn't find a Notion page named “{data.page}”. Share it with your integration (••• → Connections) or set{" "}
-            <code className="text-slate-300">NOTION_EXPENSES_PAGE</code> in backend/.env.
+            Couldn't find a Notion page named “{data.page}”. In Notion, add your integration to it (••• → Connections), or
+            change the page name in{" "}
+            <button className="underline hover:text-slate-200" onClick={onOpenSettings}>
+              Settings
+            </button>
+            .
           </p>
         )}
 

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     weather_city: str = "Ahmedabad"
+    # Optional coordinates for WEATHER_CITY (skips the city lookup). Ahmedabad is built in.
+    weather_lat: float | None = None
+    weather_lon: float | None = None
     # Applied to gold/silver USD->INR conversion. India's rate was raised to 15% in May 2026.
     import_duty_percent: float = 15.0
     cache_ttl_weather: int = 900
@@ -16,12 +19,19 @@ class Settings(BaseSettings):
     cache_ttl_news: int = 600
     cache_ttl_notion: int = 30
 
-    # Notion internal integration secret (backend only)
+    # Optional: copied into the FIRST account at sign-up (each user then manages their
+    # own Notion connection in Settings). Title or Notion URL/ID of the expenses page.
     notion_token: str = ""
-    # Title of the expenses page/database, or its Notion URL/ID
     notion_expenses_page: str = "Expenses"
     # Used for "this month" boundaries
     timezone: str = "Asia/Kolkata"
+
+    # Invite code others must enter to create an account (the first account needs none).
+    # Empty = sign-ups closed once the first account exists.
+    signup_code: str = ""
+    # Signs session cookies and encrypts stored Notion tokens. Set a long random value
+    # in production and don't change it (changing it signs everyone out and forgets Notion keys).
+    secret_key: str = ""
 
     brief_provider: str = "extractive"
     llm_api_key: str = ""

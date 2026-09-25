@@ -1,0 +1,58 @@
+# Builds the Windows desktop widget installer (.exe).
+#  - Push a tag like "widget-v1.0.0" -> builds and publishes a GitHub Release with the .exe
+#  - Or run it manually (Actions tab -> "Desktop widget" -> Run workflow) -> .exe is under "Artifacts"
+name: Desktop widget
+
+on:
+  push:
+    tags: ["widget-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/widget-v')
+        shell: bash
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#widget-v}"
+
+      - name: Build installer
+        run: npm run dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DailyCommandCenter-Setup
+          path: desktop/dist/*.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/widget-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Daily Command Center widget ${{ github.ref_name }}
+          files: desktop/dist/*.exe
+          body: |
+            **Install:** download `DailyCommandCenter-Setup-*.exe` below and run it.
+            Windows may show "Windows protected your PC" because the app isn't code-signed:
+            click **More info → Run anyway**.
+
+            After installing, sign in (or create an account with the invite code you were given).
+            Right-click the tray icon for options: always on top, start with Windows, zoom.
