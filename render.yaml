@@ -12,11 +12,9 @@ services:
     envVars:
       - key: MONGODB_URI            # MongoDB Atlas connection string (mongodb+srv://...)
         sync: false
-      - key: DASHBOARD_PASSWORD     # password you'll use to sign in
+      - key: SIGNUP_CODE            # invite code others need to create an account
         sync: false
-      - key: NOTION_TOKEN           # Notion integration secret
-        sync: false
-      - key: SECRET_KEY             # signs login cookies; generated automatically
+      - key: SECRET_KEY             # signs sessions + encrypts Notion keys; generated, never change it
         generateValue: true
       - key: MONGODB_DB
         value: daily_command_center

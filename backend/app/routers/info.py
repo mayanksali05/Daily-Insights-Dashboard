@@ -3,10 +3,11 @@ from typing import Optional
 
 import httpx
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from pymongo import errors as mongo_errors
 
+from .. import security
 from ..config import settings
 from ..db import get_db
 from ..services import brief, markets, news, notion, notion_expenses, weather
@@ -39,26 +40,33 @@ async def get_news(category: str, limit: int = Query(4, ge=1, le=12)):
     return await news.get_news(category, limit)
 
 
+def _notion_of(request: Request) -> tuple[str, str]:
+    user = request.state.user
+    return security.decrypt(user.get("notion_token_enc")), user.get("notion_page") or "Expenses"
+
+
 @router.get("/notion/recent")
-async def get_notion_recent(limit: int = Query(10, ge=1, le=25)):
+async def get_notion_recent(request: Request, limit: int = Query(10, ge=1, le=25)):
+    token, _ = _notion_of(request)
     try:
-        return {"configured": True, "pages": await notion.get_recent(limit)}
+        return {"configured": True, "pages": await notion.get_recent(token, limit)}
     except notion.NotionNotConfigured:
         return {"configured": False, "pages": []}
     except notion.NotionAuthError:
-        raise HTTPException(502, "Notion token is invalid or lacks access")  # not 401: that means "signed out"
+        raise HTTPException(502, "Notion token is invalid or lacks access. Reconnect it in Settings.")  # not 401: that means "signed out"
     except Exception:
         raise HTTPException(502, "Notion is unavailable")
 
 
 @router.get("/notion/expenses")
-async def get_notion_expenses():
+async def get_notion_expenses(request: Request):
+    token, page = _notion_of(request)
     try:
-        return await notion_expenses.get_month_total()
+        return await notion_expenses.get_month_total(token, page)
     except notion.NotionNotConfigured:
         return {"configured": False}
     except notion.NotionAuthError:
-        raise HTTPException(502, "Notion token is invalid or lacks access")  # not 401: that means "signed out"
+        raise HTTPException(502, "Notion token is invalid or lacks access. Reconnect it in Settings.")  # not 401: that means "signed out"
     except httpx.HTTPStatusError as e:
         msg = e.response.text[:300]
         log.error("Notion API error %s on %s: %s", e.response.status_code, e.request.url, msg)
@@ -87,15 +95,17 @@ def _explain_db_error(e: Exception) -> str:
 
 
 @router.get("/diagnostics")
-async def diagnostics():
-    """Signed-in only: explains why a section isn't loading. Never returns secrets."""
+async def diagnostics(request: Request):
+    """Admin only: explains why a section isn't loading. Never returns secrets."""
+    if not request.state.user.get("is_admin"):
+        raise HTTPException(403, "Only the owner account can view diagnostics")
     uri = settings.mongodb_uri
     report: dict = {
         "config": {
             "mongodb_uri_set": uri != "mongodb://localhost:27017",
             "mongodb_uri_still_has_placeholder": "<" in uri or ">" in uri,
             "mongodb_database": settings.mongodb_db,
-            "notion_token_set": bool(settings.notion_token),
+            "signup_code_set": bool(settings.signup_code),
             "weather_city": settings.weather_city,
         }
     }

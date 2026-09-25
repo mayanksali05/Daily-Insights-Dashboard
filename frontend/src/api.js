@@ -17,7 +17,9 @@ async function request(path, options = {}) {
   if (!res.ok) {
     let detail = "";
     try {
-      detail = (await res.json()).detail || "";
+      const d = (await res.json()).detail;
+      // FastAPI validation errors are a list: show the first message.
+      detail = typeof d === "string" ? d : Array.isArray(d) ? String(d[0]?.msg || "").replace(/^Value error, /, "") : "";
     } catch {
       /* not JSON */
     }
@@ -31,8 +33,15 @@ async function request(path, options = {}) {
 
 export const api = {
   authStatus: () => request("/api/auth/status"),
-  login: (password) => request("/api/auth/login", { method: "POST", body: { password } }),
+  login: (email, password) => request("/api/auth/login", { method: "POST", body: { email, password } }),
+  signup: (body) => request("/api/auth/signup", { method: "POST", body }),
   logout: () => request("/api/auth/logout", { method: "POST" }),
+
+  me: () => request("/api/me"),
+  saveSettings: (settings) => request("/api/me/settings", { method: "PUT", body: settings }),
+  connectNotion: (token, page) => request("/api/me/notion", { method: "PUT", body: { token, page } }),
+  disconnectNotion: () => request("/api/me/notion", { method: "DELETE" }),
+  changePassword: (current, next) => request("/api/me/password", { method: "POST", body: { current, new: next } }),
 
   weather: (city) => request(`/api/weather${city ? `?city=${encodeURIComponent(city)}` : ""}`),
   markets: (keys) => request(`/api/markets?symbols=${keys.join(",")}`),

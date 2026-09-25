@@ -14,44 +14,22 @@ import TasksPanel from "./components/TasksPanel";
 import WeatherCard from "./components/WeatherCard";
 import { useSettings } from "./hooks";
 
+// Signs the user in, then renders their dashboard.
 export default function App() {
-  const [settings, update] = useSettings();
-  const [view, setView] = useState("dashboard"); // dashboard | notes | settings
-  const [noteId, setNoteId] = useState(null);
-  const s = settings.sections;
+  const [auth, setAuth] = useState({ state: "checking", user: null, signup: "closed" });
 
-  // Apply the theme (index.html sets it before first paint to avoid a flash).
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", settings.theme === "dark");
-  }, [settings.theme]);
-  const setTheme = (theme) => update({ theme });
-
-  // Sign-in: "checking" until /api/auth/status answers; the deployed app requires a password.
-  const [auth, setAuth] = useState({ state: "checking", required: false });
-  useEffect(() => {
+  const refresh = () =>
     api
       .authStatus()
-      .then((r) => setAuth({ state: r.authenticated ? "in" : "out", required: r.auth_required }))
-      .catch(() => setAuth({ state: "in", required: false })); // backend down: let cards show their errors
-    const onExpired = () => setAuth((a) => ({ ...a, state: "out" }));
+      .then((r) => setAuth({ state: r.authenticated ? "in" : "out", user: r.user, signup: r.signup }))
+      .catch(() => setAuth({ state: "offline", user: null, signup: "closed" }));
+
+  useEffect(() => {
+    refresh();
+    const onExpired = () => setAuth((a) => ({ ...a, state: "out", user: null }));
     window.addEventListener(UNAUTHORIZED_EVENT, onExpired);
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onExpired);
   }, []);
-  const logout = async () => {
-    await api.logout().catch(() => {});
-    setView("dashboard");
-    setAuth((a) => ({ ...a, state: "out" }));
-  };
-
-  const openNote = (id) => {
-    setNoteId(id);
-    setView("notes");
-  };
-
-  const isDashboard = view === "dashboard";
-  // AI news sits in row 2; the other news categories stay in row 3.
-  const showAi = s.news && settings.news.includes("ai");
-  const rowThreeNews = settings.news.filter((c) => c !== "ai");
 
   if (auth.state === "checking") {
     return (
@@ -60,9 +38,55 @@ export default function App() {
       </div>
     );
   }
-  if (auth.state === "out") {
-    return <Login onSuccess={() => setAuth((a) => ({ ...a, state: "in" }))} />;
+  if (auth.state === "offline") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center text-sm text-slate-400">
+        <p>Can't reach the dashboard server. On the free plan it can take about a minute to wake up.</p>
+        <button className="btn-primary" onClick={() => { setAuth((a) => ({ ...a, state: "checking" })); refresh(); }}>
+          Try again
+        </button>
+      </div>
+    );
   }
+  if (auth.state === "out") {
+    return (
+      <Login
+        signupMode={auth.signup}
+        onSuccess={(user) => setAuth({ state: "in", user, signup: auth.signup })}
+      />
+    );
+  }
+
+  const logout = async () => {
+    await api.logout().catch(() => {});
+    await refresh();
+  };
+  // key: a different account gets a fresh dashboard (its own settings)
+  return <Dashboard key={auth.user.id} user={auth.user} onLogout={logout} onUserChanged={refresh} />;
+}
+
+function Dashboard({ user, onLogout, onUserChanged }) {
+  const [settings, update] = useSettings(user.settings, (s) => api.saveSettings(s).catch(() => {}));
+  const [view, setView] = useState("dashboard"); // dashboard | notes | settings
+  const [noteId, setNoteId] = useState(null);
+  const s = settings.sections;
+
+  // Apply the theme (index.html sets it from the local cache before first paint).
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", settings.theme === "dark");
+  }, [settings.theme]);
+  const setTheme = (theme) => update({ theme });
+
+  const openNote = (id) => {
+    setNoteId(id);
+    setView("notes");
+  };
+  const openSettings = () => setView("settings");
+
+  const isDashboard = view === "dashboard";
+  // AI news sits in row 2; the other news categories stay in row 3.
+  const showAi = s.news && settings.news.includes("ai");
+  const rowThreeNews = settings.news.filter((c) => c !== "ai");
 
   return (
     <div className="min-h-screen">
@@ -77,8 +101,8 @@ export default function App() {
         {isDashboard && (
           <div className="flex flex-col gap-3 xl:h-full">
             <Header
-              name={settings.name}
-              onOpenSettings={() => setView("settings")}
+              name={settings.name || user.name}
+              onOpenSettings={openSettings}
               theme={settings.theme}
               onThemeChange={setTheme}
             />
@@ -96,7 +120,7 @@ export default function App() {
                 {s.brief && <BriefCard className="xl:flex-[1.5]" />}
                 {showAi && <NewsSection category="ai" className="xl:flex-1" />}
                 {s.notes && <RecentNotes className="xl:flex-1" onOpen={openNote} />}
-                {s.notion && <NotionCard className="xl:flex-1" />}
+                {s.notion && <NotionCard className="xl:flex-1" onOpenSettings={openSettings} />}
               </div>
             )}
 
@@ -117,7 +141,13 @@ export default function App() {
         )}
         {view === "settings" && (
           <PageShell title="Settings" onBack={() => setView("dashboard")}>
-            <SettingsPanel settings={settings} update={update} onLogout={auth.required ? logout : null} />
+            <SettingsPanel
+              settings={settings}
+              update={update}
+              user={user}
+              onLogout={onLogout}
+              onUserChanged={onUserChanged}
+            />
           </PageShell>
         )}
       </main>

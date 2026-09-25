@@ -24,7 +24,7 @@ export const SECTION_OPTIONS = [
 ];
 
 const DEFAULTS = {
-  name: "Mayank",
+  name: "", // empty = use the account's name
   theme: "light", // "light" | "dark"
   city: "",
   sections: { weather: true, markets: true, brief: true, news: true, tasks: true, notes: true, notion: true },
@@ -32,36 +32,64 @@ const DEFAULTS = {
   news: NEWS_OPTIONS.map((n) => n.key),
 };
 
-function load() {
+// Merge saved values onto the defaults, dropping options that no longer exist.
+function normalize(saved = {}) {
+  const valid = MARKET_OPTIONS.map((m) => m.key);
+  const kept = Array.isArray(saved.markets) ? saved.markets.filter((k) => valid.includes(k)) : [];
+  const markets = kept.length ? kept : DEFAULTS.markets;
+  // Old "world"/"india" choices become the combined "headlines" section.
+  const newsKeys = NEWS_OPTIONS.map((n) => n.key);
+  let news = DEFAULTS.news;
+  if (Array.isArray(saved.news)) {
+    const mapped = saved.news.map((k) => (k === "world" || k === "india" ? "headlines" : k));
+    news = newsKeys.filter((k) => mapped.includes(k));
+  }
+  return { ...DEFAULTS, ...saved, markets, news, sections: { ...DEFAULTS.sections, ...saved.sections } };
+}
+
+function readCache() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    const valid = MARKET_OPTIONS.map((m) => m.key);
-    // Drop retired keys (e.g. old index choices); fall back to defaults if nothing valid is left.
-    const kept = Array.isArray(saved.markets) ? saved.markets.filter((k) => valid.includes(k)) : [];
-    const markets = kept.length ? kept : DEFAULTS.markets;
-    // News: old "world"/"india" choices become the combined "headlines" section.
-    const newsKeys = NEWS_OPTIONS.map((n) => n.key);
-    let news = DEFAULTS.news;
-    if (Array.isArray(saved.news)) {
-      const mapped = saved.news.map((k) => (k === "world" || k === "india" ? "headlines" : k));
-      news = newsKeys.filter((k) => mapped.includes(k));
-    }
-    return { ...DEFAULTS, ...saved, markets, news, sections: { ...DEFAULTS.sections, ...saved.sections } };
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
   } catch {
-    return DEFAULTS;
+    return {};
   }
 }
 
-export function useSettings() {
-  const [settings, setSettings] = useState(load);
+function writeCache(value) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(value));
+  } catch {
+    /* storage unavailable - keep in memory */
+  }
+}
+
+/**
+ * Dashboard preferences, saved to the signed-in account (so they follow you to the
+ * desktop widget and other browsers) and cached locally for a flash-free first paint.
+ * `serverSettings` comes from /api/auth/status; `save` persists to the server.
+ */
+export function useSettings(serverSettings, save) {
+  const [settings, setSettings] = useState(() => {
+    const hasServer = serverSettings && Object.keys(serverSettings).length > 0;
+    return normalize(hasServer ? serverSettings : readCache());
+  });
+  const timer = useRef(null);
+  const saveRef = useRef(save);
+  saveRef.current = save;
+
+  // First sign-in after accounts were added: upload this browser's existing preferences.
+  useEffect(() => {
+    if (!serverSettings || Object.keys(serverSettings).length === 0) saveRef.current?.(settings);
+    writeCache(settings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const update = useCallback((patch) => {
     setSettings((prev) => {
       const next = { ...prev, ...patch };
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
-      } catch {
-        /* storage unavailable - keep in memory */
-      }
+      writeCache(next);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => saveRef.current?.(next), 600);
       return next;
     });
   }, []);

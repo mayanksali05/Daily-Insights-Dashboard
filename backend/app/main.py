@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -7,9 +8,22 @@ from fastapi.staticfiles import StaticFiles
 
 from . import auth
 from .config import settings
-from .routers import info, notes, tasks
+from .db import get_db
+from .routers import info, me, notes, tasks
 
 app = FastAPI(title="Daily Command Center API")
+log = logging.getLogger("uvicorn.error")
+
+
+@app.on_event("startup")
+async def create_indexes():
+    try:
+        db = get_db()
+        await db.users.create_index("email", unique=True)
+        await db.tasks.create_index([("user_id", 1), ("created_at", -1)])
+        await db.notes.create_index([("user_id", 1), ("updated_at", -1)])
+    except Exception as e:  # keep serving; /api/diagnostics explains DB problems
+        log.error("Could not create indexes: %s: %s", type(e).__name__, e)
 
 app.add_middleware(auth.AuthMiddleware)
 app.add_middleware(
@@ -33,6 +47,7 @@ async def security_headers(request: Request, call_next):
 
 
 app.include_router(auth.router)
+app.include_router(me.router)
 app.include_router(tasks.router)
 app.include_router(notes.router)
 app.include_router(info.router)

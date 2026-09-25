@@ -1,6 +1,6 @@
 """This month's total spend from a Notion "Expenses" page.
 
-The page is found by title (NOTION_EXPENSES_PAGE, default "Expenses") or by a
+The page is found by title (each user sets it in Settings, default "Expenses") or by a
 Notion page/database URL or ID in the same setting. Its layout is detected
 automatically:
 
@@ -179,8 +179,8 @@ def _title_of(obj: dict) -> str:
     return ""
 
 
-async def _find_target(api: _Client) -> dict | None:
-    ref = settings.notion_expenses_page.strip()
+async def _find_target(api: _Client, page_ref: str) -> dict | None:
+    ref = page_ref.strip()
     ids = re.findall(r"[0-9a-f]{32}", ref.replace("-", "").lower())
     if ids:
         for kind in ("databases", "pages"):
@@ -379,21 +379,23 @@ async def _sum_blocks(api: _Client, parent_id: str, ym, forced: bool = False) ->
 
 
 @ttl_cache(lambda: settings.cache_ttl_notion)
-async def get_month_total() -> dict:
-    if not settings.notion_token:
+async def get_month_total(token: str, page_ref: str = "Expenses") -> dict:
+    """Month total for one user's Notion (their token + expenses page title/URL)."""
+    page_ref = (page_ref or "Expenses").strip()
+    if not token:
         raise NotionNotConfigured()
     now = _now()
     ym = (now.year, now.month)
     headers = {
-        "Authorization": f"Bearer {settings.notion_token}",
+        "Authorization": f"Bearer {token}",
         "Notion-Version": NOTION_VERSION,
         "Content-Type": "application/json",
     }
     async with httpx.AsyncClient(timeout=15, headers=headers) as http:
         api = _Client(http)
-        target = await _find_target(api)
+        target = await _find_target(api, page_ref)
         if not target:
-            return {"configured": True, "found": False, "page": settings.notion_expenses_page}
+            return {"configured": True, "found": False, "page": page_ref}
         if target.get("object") == "database":
             result = await _sum_database(api, target, ym)
         else:
@@ -402,7 +404,7 @@ async def get_month_total() -> dict:
     return {
         "configured": True,
         "found": True,
-        "page": _title_of(target) or settings.notion_expenses_page,
+        "page": _title_of(target) or page_ref,
         "url": target.get("url"),
         "month": now.strftime("%B %Y"),
         "total": round(result["total"], 2),

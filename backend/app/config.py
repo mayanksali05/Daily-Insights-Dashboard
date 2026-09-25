@@ -19,16 +19,18 @@ class Settings(BaseSettings):
     cache_ttl_news: int = 600
     cache_ttl_notion: int = 30
 
-    # Notion internal integration secret (backend only)
+    # Optional: copied into the FIRST account at sign-up (each user then manages their
+    # own Notion connection in Settings). Title or Notion URL/ID of the expenses page.
     notion_token: str = ""
-    # Title of the expenses page/database, or its Notion URL/ID
     notion_expenses_page: str = "Expenses"
     # Used for "this month" boundaries
     timezone: str = "Asia/Kolkata"
 
-    # Login for the deployed dashboard. Empty password = no login (local dev).
-    dashboard_password: str = ""
-    # Signs the session cookie; set a long random value in production.
+    # Invite code others must enter to create an account (the first account needs none).
+    # Empty = sign-ups closed once the first account exists.
+    signup_code: str = ""
+    # Signs session cookies and encrypts stored Notion tokens. Set a long random value
+    # in production and don't change it (changing it signs everyone out and forgets Notion keys).
     secret_key: str = ""
 
     brief_provider: str = "extractive"
